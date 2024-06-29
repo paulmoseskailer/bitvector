@@ -5,10 +5,14 @@ use std::env;
 use std::time::Instant;
 
 use crate::bit_vector::*;
-
 #[path = "./bit_vector.rs"]
 #[macro_use]
 pub mod bit_vector;
+
+use crate::generate_inputs::*;
+#[path = "./generate_inputs.rs"]
+#[macro_use]
+pub mod generate_inputs;
 
 static PRINT_INPUT : bool = false; // careful, some input is very large
 
@@ -50,7 +54,9 @@ fn main() -> io::Result<()> {
   // read input
   let args: Vec<String> = env::args().collect();
   if args.len() < 2 {
-    panic!("Not enough input arguments, expecting input_filepath");
+    println!("No input file given, generating input...");
+    generate_inputs(10, 100);
+    return Ok(());
   }
 
   let input_filepath = &args[1];

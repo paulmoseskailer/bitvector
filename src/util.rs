@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+// Calculate the size of a HashMap in bits
 // Adapted from https://stackoverflow.com/questions/68255026/how-to-get-memory-occupied-by-an-object-in-rust-from-the-code-itself
 
 pub trait AllocatedSize {

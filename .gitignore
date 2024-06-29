@@ -1,12 +1,10 @@
 *.exe
 *.pdb
 
-# file too large, slows git commands
-input/input_2to32.txt
+# files too large, slows git commands
+inputs/*
 
-output/output.txt
-input_gen/target/*
-input_gen/random.txt
+output/*
 
 # Added by cargo
 
