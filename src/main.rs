@@ -59,6 +59,10 @@ fn main() -> io::Result<()> {
     return Ok(());
   }
 
+  let output_filepath = match args.len() >= 3 {
+    true => &args[2],
+    false => "outputs/output.txt"
+  };
   let input_filepath = &args[1];
   let input_read_start = Instant::now();
   let (n_queries, data, requests) = read_input_file(input_filepath)?;
@@ -76,7 +80,7 @@ fn main() -> io::Result<()> {
     println!("Vector print: {:?}", vector);
   }
   
-  let mut output_file = match File::create(Path::new("output/output.txt")) {
+  let mut output_file = match File::create(Path::new(output_filepath)) {
     Err(why) => panic!("couldn't create output_file: {}", why),
     Ok(file) => file,
   };

@@ -6,9 +6,12 @@ use rand::prelude::*; // TODO remove for final hand-in! (onyl std allwoed)
 pub fn generate_inputs(size: u32, num_queries: u32) {
   println!("generating input of size 2^{size}");
   let mut output_file = match File::create(Path::new("inputs/random_input.txt")) {
-  Err(why) => panic!("couldn't create output_file: {}", why),
-  Ok(file) => file,
+    Err(why) => panic!("couldn't create output_file: {}", why),
+    Ok(file) => file,
   };
+  if let Err(e) = writeln!(output_file, "{num_queries}") {
+    eprintln!("Couldn't write to file: {}", e);
+  }
 
   let input_length : u64 = 2_u64.pow(size);
   let num_amount = 2_u32.pow(size - 7); //generating 128 = 2^7 bit numbers

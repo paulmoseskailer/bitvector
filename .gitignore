@@ -4,7 +4,7 @@
 # files too large, slows git commands
 inputs/*
 
-output/*
+outputs/*
 
 # Added by cargo
 
