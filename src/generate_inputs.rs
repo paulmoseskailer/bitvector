@@ -41,6 +41,7 @@ pub fn generate_inputs(size: u32, num_queries: u32) {
       eprintln!("Couldn't write to file: {}", e);
     }
   }
+  println!("Finished generating inputs.")
 }
 
 fn generate_random_access(input_length : u64) -> String {

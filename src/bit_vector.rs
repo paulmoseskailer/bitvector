@@ -31,17 +31,24 @@ pub struct BitVector {
   // word-size of 64 bits, see lecture slides
   pub data : Vec<u64>,
 
+  // -------------------
+
   // rank support blocks
-  pub s : usize,
-  pub s_prime : usize,
+  pub s : usize,       // block size
+  pub s_prime : usize, // superblock size
   pub num_zeros_superblock : Vec<u64>,
   pub num_zeros_block : Vec<u64>,
+  // store the result for every possible query in every possible block
+  // of size s.
+  // indices: block, index inside block
   pub block_index_ranks : HashMap<(u64, u64), u64>,
 
+  // -------------------
+
   // select support blocks
-  pub k : u64, // number of zeros
-  pub b : usize, // (lg n)^2
-  pub b_prime : usize, // sqrt(lg n)
+  pub k : u64,          // number of zeros in bitvector
+  pub b : usize,        // = (lg n)^2, number of zeros per superblock
+  pub b_prime : usize,  // = sqrt(lg n), number of zeros per block
 
   // indices: superblock, b in {0,1}
   pub superblock_ends : HashMap<(u64,bool),u64>,
@@ -115,7 +122,7 @@ fn generate_block_index_selects(n : u64) -> HashMap<(u64,u64,u64,bool), u64> {
   block_index_selects
 }
 
-pub fn to_bit_vector(string:String) -> BitVector {
+pub fn bitvector_from_datastring(string:String) -> BitVector {
   let n = string.len() as u64;
   let s = (n.ilog2()/2) as usize;
 
@@ -137,7 +144,7 @@ pub fn to_bit_vector(string:String) -> BitVector {
     }
     a[word_index] = word;
   }
-  // deal with left over chars
+  // deal with left over chars (since n might not be divisible by 64)
   let mut bit_index = 0;
   let mut word : u64 = 0;
   for char_index in ((num_words-1)*64)..(chars.len()) {
@@ -149,14 +156,14 @@ pub fn to_bit_vector(string:String) -> BitVector {
   }
   a[num_words-1] = word;
 
-  create_bit_vector(a, n, s, n-num_ones)
+  create_bitvector(a, n, s, n-num_ones)
 }
 
-pub fn create_bit_vector(data: Vec<u64>, n: u64, s: usize, k: u64) -> BitVector {
+pub fn create_bitvector(data: Vec<u64>, n: u64, s: usize, k: u64) -> BitVector {
   let b = ((n as f64).log2() * (n as f64).log2()) as usize;
   let b_prime = (n as f64).log2().sqrt() as usize;
 
-  // In order to use access queries to populate the num_zeros datastructures,
+  // In order to use access queries to populate the rank & select support datastructures,
   // a bitvector with only access functionality is instantiated.
   // Yes, this is wasteful, but this project only evaluates the performance of a static bitvector.
   let bv_no_rank_no_select = BitVector {
@@ -182,6 +189,7 @@ pub fn create_bit_vector(data: Vec<u64>, n: u64, s: usize, k: u64) -> BitVector 
   let (num_zeros_superblock, num_zeros_block) = get_rank_support(&bv_no_rank_no_select);
   let block_index_ranks = generate_block_index_ranks(s);
   benchmark_print!("Rank support in {} ms\n", rank_start.elapsed().as_millis());
+  
   let sel_start = Instant::now();
   let (superblock_ends, superblock_stored_naively, select_inside_superblock, block_ends, block_stored_naively, select_inside_block) = get_select_support(&bv_no_rank_no_select);
   benchmark_print!("Select support in {} ms\n", sel_start.elapsed().as_millis());
@@ -226,10 +234,14 @@ pub fn create_bit_vector(data: Vec<u64>, n: u64, s: usize, k: u64) -> BitVector 
   }
 }
 
+// Calculate how many zeros from beginning of the bitvector until the end of every 
+// superblock (for all superblocks),
+// and how many zeros from beginning of the superblock until the end of every block 
+// (if superblock is divided into blocks)
 fn get_rank_support(bv : &BitVector) -> (Vec<u64>, Vec<u64>) {
   let n = bv.n;
-  let s = bv.s;
-  let s_prime = bv.s_prime;
+  let s = bv.s; // block size
+  let s_prime = bv.s_prime; // superblock size
   let mut num_zeros_block = vec![0; (n/(s as u64)) as usize];
   let mut num_zeros_superblock = vec![0; (n/(s_prime as u64)) as usize];
 
@@ -279,7 +291,9 @@ fn get_rank_support(bv : &BitVector) -> (Vec<u64>, Vec<u64>) {
   (num_zeros_superblock, num_zeros_block)
 }
 
+// Determine sizes of the (super)blocks, store some blocks select query answers naively
 fn get_select_support(bv : &BitVector) -> (HashMap<(u64,bool),u64>, HashMap<(u64,bool),bool>, HashMap<(u64,u64,bool),u64>, HashMap<(u64,u64,bool),u64>, HashMap<(u64,u64,bool),bool>, HashMap<(u64,u64,u64,bool),u64>) {
+  // Need support structures for both select_0 and select_1
   let (mut superblock_ends_0, mut superblock_stored_naively_0, mut select_inside_superblock_0, mut block_ends_0, mut block_stored_naively_0, mut select_inside_block_0) = get_select_support_b(bv, false);
   let (superblock_ends_1, superblock_stored_naively_1, select_inside_superblock_1, block_ends_1, block_stored_naively_1, select_inside_block_1) = get_select_support_b(bv, true);
   superblock_ends_0.extend(superblock_ends_1);
@@ -291,16 +305,17 @@ fn get_select_support(bv : &BitVector) -> (HashMap<(u64,bool),u64>, HashMap<(u64
   (superblock_ends_0, superblock_stored_naively_0, select_inside_superblock_0, block_ends_0, block_stored_naively_0, select_inside_block_0)
 }
 
+// Select support structures for either 0 or 1, depending on value_to_select
 fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u64,bool),u64>, HashMap<(u64,bool),bool>, HashMap<(u64,u64,bool),u64>, HashMap<(u64,u64,bool),u64>, HashMap<(u64,u64,bool),bool>, HashMap<(u64,u64,u64,bool),u64>) {
   let n = bv.n;
   let k = match value_to_select {
-    false => bv.k,
-    true => n - bv.k,
+    false => bv.k,    // number of zeros
+    true => n - bv.k, // number of ones
   };
   let b = bv.b;
   let b_prime = (n.ilog2() as f64).sqrt() as usize;
   let mut num_superblocks = (k/b as u64) as usize;
-  // round up (didn't find a good enough built-in function)
+  // round up (didn't find a good enough built-in function for u64 division)
   if ((num_superblocks*b) as u64) < k {
     num_superblocks += 1;
   }
@@ -332,10 +347,10 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
       false => 0,
     };
     let superblock_size = superblock_end - superblock_start;
-    // superblock spans (superblock_start)...(superblock_end - 1)
+    // superblock spans (superblock_start) until including (superblock_end - 1)
 
     // save results for select inside the superblock: select_0(B_{i/b}, i - (i/b * b))
-    // for explanation on case distinction, see lecture slides
+    // for explanation on which size of superblock is stored naively see lecture slide 10
     if superblock_size >= n.ilog2().pow(4) as u64 {
       debug_print!("SAVING sblock {superblock} naively!\n");
       superblock_stored_naively.insert((superblock as u64, value_to_select), true);
@@ -351,15 +366,18 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
       // the "0th" zero is the end of the last superblock
       select_inside_superblock.insert((superblock as u64, 0, value_to_select), 0);
     } else {
-      // divide superblock into blocks of variable size, with b_prime zeros each
       debug_print!("NOT SAVING sblock {superblock} naively\n");
       superblock_stored_naively.insert((superblock as u64, value_to_select), false);
+      // divide superblock into blocks of variable size, with b_prime zeros each
 
-      // copy block ends to seperate vector for convenience (only the static bv is evaluated)
+      // copy block ends to seperate vector for convenience 
+      // (don't care about performance here, only the static bv is evaluated)
       let mut tmp_block_ends = vec![0; num_blocks_per_superblock as usize];
+
       let mut bv_index = superblock_start;
       for block in 0..num_blocks_per_superblock {
-        // same iterating approach as with superblocks above
+        // same iterating approach as with superblocks above:
+        // determine the end of every block by counting zeros
         let mut zeros_left = b_prime;
         while zeros_left > 0 && bv_index < n{
           if execute_access(&bv, &bv_index) == value_to_select as u64 {
@@ -370,13 +388,15 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
         let block_end = bv_index;
         tmp_block_ends[block as usize] = block_end;
         block_ends.insert((superblock as u64,block as u64, value_to_select), block_end);
+        
         let block_start = match block > 0 {
           true => tmp_block_ends[(block-1) as usize],
           false => 0,
         };
         let block_size = block_end - block_start;
 
-        let this_block_stored_naively = block_size >= (n.ilog2()/2) as u64;
+        // the suggestion on lecture slide 10 of lg n does not work well, (lg n)/2 is better
+        let this_block_stored_naively : bool = block_size >= (n.ilog2()/2) as u64;
         block_stored_naively.insert((superblock as u64, block as u64, value_to_select), this_block_stored_naively);
 
         if this_block_stored_naively {
@@ -394,27 +414,13 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
           }
         } else {
           debug_print!("SAVING for b={value_to_select} sblock {superblock}, block {block}, i in {block_start}..{block_end} by lookup\n");
+          // select inside this block is calculated by lookup of the entire block in select_from_block
         } 
       }
     }
   }
 
   (superblock_ends, superblock_stored_naively, select_inside_superblock, block_ends, block_stored_naively, select_inside_block)
-}
-
-fn get_rank_inside_block(vector : &BitVector, index: &u64) -> u64 {
-  let index_in_block = *index % (vector.s as u64);
-  let block_start = *index - index_in_block;
-
-  // get block via s = lg(n)/2 access queries
-  let mut block : u64 = 0;
-  for i in 0..vector.s {
-    if (block_start + (i as u64)) < vector.n && execute_access(&vector, &(block_start + (i as u64))) == 1 {
-      block = block | (1u64 << ((vector.s-1)-i));
-    }
-  }
-
-  *vector.block_index_ranks.get(&(block, index_in_block)).unwrap()
 }
 
 pub fn handle_request(a: &BitVector, request: &Request) -> u64 {
@@ -445,13 +451,13 @@ fn benchmark_print_request(request: &Request) {
   };
 }
 
-pub fn execute_access(a:&BitVector, index : &u64) -> u64 {
+fn execute_access(a:&BitVector, index : &u64) -> u64 {
   // see lecture slides
   let block : u64 = a.data[(index/64) as usize];
   (block >> ((63 - (index.rem_euclid(64))))) & 1u64
 }
 
-pub fn execute_rank(a:&BitVector, b: &bool, index : &u64) -> u64 {
+fn execute_rank(a:&BitVector, b: &bool, index : &u64) -> u64 {
   assert!(!a.num_zeros_block.is_empty(), "Rank query needs instantiated num_zeros_block");
   assert!(!a.num_zeros_superblock.is_empty(), "Rank query needs instantiated num_zeros_superblock");
   if *b {
@@ -471,8 +477,24 @@ pub fn execute_rank(a:&BitVector, b: &bool, index : &u64) -> u64 {
   zeros_to_block + get_rank_inside_block(a, index)
 }
 
-pub fn execute_select(bv:&BitVector, b: &bool, index : u64) -> u64 {
+fn get_rank_inside_block(bv : &BitVector, index: &u64) -> u64 {
+  let index_in_block = *index % (bv.s as u64);
+  let block_start = *index - index_in_block;
+
+  // get block via s = lg(n)/2 access queries
+  let block : u64 = get_bits(bv, block_start, block_start + (bv.s as u64));
+
+  *bv.block_index_ranks.get(&(block, index_in_block)).unwrap()
+}
+
+fn execute_select(bv:&BitVector, b: &bool, index : u64) -> u64 {
   debug_print!("SELECT_START\n gettig prefix sum for i={}\n", index);
+  if *b {
+    assert!(index <= (bv.n - bv.k), "Invalid select index requested!");
+  } else {
+    assert!(index <= bv.k, "Invalid select index requested!");
+  }
+  
   let superblock_index = (index/(bv.b as u64)) as usize;
   let index_inside_superblock = index - (superblock_index * bv.b) as u64;
   let block_index = index_inside_superblock / bv.b_prime as u64;
@@ -519,6 +541,7 @@ pub fn execute_select(bv:&BitVector, b: &bool, index : u64) -> u64 {
   prefix_sum + select_inside_sblock
 }
 
+// if block is not stored naively, have to lookup the entire block (and requested index) in select_from_block HashMap
 fn get_select_from_block(bv: &BitVector, superblock_index : usize, block_index : u64, index_inside_block : u64, b : bool) -> u64 {
   // getting the block takes block_size * access_request = lg(n) * O(1) = lg(n) time
   let block_start = match block_index > 0 {
@@ -531,14 +554,14 @@ fn get_select_from_block(bv: &BitVector, superblock_index : usize, block_index :
   let block_end = bv.block_ends.get(&(superblock_index as u64, block_index, b)).unwrap().clone();
   let block_width = block_end - block_start;
   let block = get_bits(bv, block_start, block_end);
-  debug_print!("Block lookup b={b}: width={block_width}, block={block:064b}, i={index_inside_block}\n");
+  debug_print!("Select block lookup b={b}: width={block_width}, block={block:064b}, i={index_inside_block}\n");
   bv.select_from_block.get(&(block, block_width, index_inside_block, b)).unwrap().clone()
 }
 
 fn get_bits(bv:&BitVector, start : u64, end : u64) -> u64 {
   let mut bits : u64 = 0;
   let width = end - start;
-  assert!(width <= 64, "cannot get more than 64 bits");
+  assert!(width <= 64, "cannot get more than 64 bits simultaneously");
 
   for i in start..end {
     let distance_from_start = i - start;
@@ -556,12 +579,12 @@ mod tests {
 
   fn get_test_vector() -> BitVector {
     let test_string : String= String::from("1010011101001001");
-    let result = to_bit_vector(test_string);
+    let result = bitvector_from_datastring(test_string);
     result
   }
   fn get_long_test_vector() -> BitVector {
     let test_string_80 : String= String::from("10100111010010011010011101001001101001110100100110100111010010011010011101001001");
-    let result = to_bit_vector(test_string_80);
+    let result = bitvector_from_datastring(test_string_80);
     println!("bv 80: {:?}", result);
     result
   }
@@ -570,7 +593,7 @@ mod tests {
       true => String::from("11111111111111111111111111111111111111111111111111111111111111111111111111111111"),
       false => String::from("00000000000000000000000000000000000000000000000000000000000000000000000000000000"),
     };
-    let result = to_bit_vector(test_string_80);
+    let result = bitvector_from_datastring(test_string_80);
     println!("bv 80: {:?}", result);
     result
   }

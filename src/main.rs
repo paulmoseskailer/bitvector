@@ -55,7 +55,7 @@ fn main() -> io::Result<()> {
   let args: Vec<String> = env::args().collect();
   if args.len() < 2 {
     println!("No input file given, generating input...");
-    generate_inputs(10, 100);
+    generate_inputs(26, 100);
     return Ok(());
   }
 
@@ -67,7 +67,7 @@ fn main() -> io::Result<()> {
   let input_read_start = Instant::now();
   let (n_queries, data, requests) = read_input_file(input_filepath)?;
   benchmark_print!("Input read, creating bit vector ... \n");
-  let vector = to_bit_vector(data);
+  let vector = bitvector_from_datastring(data);
   assert_eq!(n_queries, requests.len().try_into().unwrap(), "was expecting {} requests, but have {}", n_queries, requests.len());
   benchmark_print!("Input processed in {} ms\n", input_read_start.elapsed().as_micros() / 1000);
 
