@@ -1,5 +1,6 @@
 use std::time::Instant;
 use std::collections::HashMap;
+use std::fs::File;
 
 use crate::util::*;
 
@@ -11,8 +12,9 @@ macro_rules! debug_print {
     ($($expr:tt)*) => { if false { print!($($expr)*); } }
 }
 macro_rules! benchmark_print {
-    ($($expr:tt)*) => { if false { print!($($expr)*); } }
+    ($($expr:tt)*) => { if true { print!($($expr)*); } }
 }
+static SAVE_EVAL : bool = true;
 
 #[derive(Debug)]
 pub enum Request{
@@ -424,7 +426,7 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
   (superblock_ends, superblock_stored_naively, select_inside_superblock, block_ends, block_stored_naively, select_inside_block)
 }
 
-pub fn handle_request(a: &BitVector, request: &Request) -> u64 {
+pub fn handle_request(a: &BitVector, request: &Request) -> (u64, u128) {
   benchmark_print_request(request);
   let start = Instant::now();
   let result = match request {
@@ -441,7 +443,7 @@ pub fn handle_request(a: &BitVector, request: &Request) -> u64 {
   };
   benchmark_print!("{}, request took {} ms \n", result, dt.as_micros() / 1000);
   println!("RESULT algo=O(1) name=paul_kailer time={} space={}", dt.as_micros() / 1000, space_required);
-  result
+  (result, dt.as_micros()/1000)
 }
 
 fn benchmark_print_request(request: &Request) {

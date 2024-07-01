@@ -15,6 +15,8 @@ use crate::generate_inputs::*;
 pub mod generate_inputs;
 
 static PRINT_INPUT : bool = false; // careful, some input is very large
+static INPUT_GEN_SIZE : u32 = 27;
+static INPUT_GEN_NUM_QUERIES : u32 = 10000;
 
 fn read_input_file(file_path: &str) -> io::Result<(u64, String, Vec<bit_vector::Request>)> {
   let file = File::open(file_path)?;
@@ -55,7 +57,7 @@ fn main() -> io::Result<()> {
   let args: Vec<String> = env::args().collect();
   if args.len() < 2 {
     println!("No input file given, generating input...");
-    generate_inputs(26, 100);
+    generate_inputs(INPUT_GEN_SIZE, INPUT_GEN_NUM_QUERIES);
     return Ok(());
   }
 
@@ -84,11 +86,25 @@ fn main() -> io::Result<()> {
     Err(why) => panic!("couldn't create output_file: {}", why),
     Ok(file) => file,
   };
-
+  let mut eval_file = match File::create(Path::new("outputs/eval_results.txt")) {
+    Err(why) => panic!("couldn't create eval_file: {}", why),
+    Ok(file) => file,
+  };
   for request in requests.iter() {
-    let result = bit_vector::handle_request(&vector, request);
+    let (result, time_ms) = bit_vector::handle_request(&vector, request);
     // append result to output file
     if let Err(e) = writeln!(output_file, "{}", result) {
+      eprintln!("Couldn't write to file: {}", e);
+    }
+    let i = match *request {
+      Request::Access { i } => i,
+      Request::Rank { b, i } => i,
+      Request::Select { b, i } => i,
+    };
+    if let Err(e) = writeln!(eval_file, "{}", i) {
+      eprintln!("Couldn't write to file: {}", e);
+    }
+    if let Err(e) = writeln!(eval_file, "{}", time_ms) {
       eprintln!("Couldn't write to file: {}", e);
     }
   }

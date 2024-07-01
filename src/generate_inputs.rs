@@ -30,7 +30,7 @@ pub fn generate_inputs(size: u32, num_queries: u32) {
 
   for _ in 0..num_queries {
     let mut rng = rand::thread_rng();
-    let x : u32 = rng.gen();
+    let x : u32 = 2;
     let query = match x % 3 {
       0 => generate_random_access(input_length-1),
       1 => generate_random_rank(input_length-1),
