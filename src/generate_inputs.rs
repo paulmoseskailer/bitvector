@@ -30,7 +30,7 @@ pub fn generate_inputs(size: u32, num_queries: u32) {
 
   for _ in 0..num_queries {
     let mut rng = rand::thread_rng();
-    let x : u32 = 2;
+    let x : u32 = 1;
     let query = match x % 3 {
       0 => generate_random_access(input_length-1),
       1 => generate_random_rank(input_length-1),
@@ -53,7 +53,7 @@ fn generate_random_access(input_length : u64) -> String {
 }
 fn generate_random_rank(input_length : u64) -> String {
   let mut rng = rand::thread_rng();
-  let i : u64 = rng.gen_range(0..input_length);
+  let i : u64 = rng.gen_range(0..(input_length/100));
   let rand : u32 = rng.gen_range(0..u32::MAX);
   let b : String = match (rand % 2) > 0 {
     true => String::from("0 "),
@@ -73,8 +73,8 @@ fn generate_random_select(input_length : u64, zeros_amount : u64) -> String {
     false => String::from("1 "),
   };
   let max_index = match (rand % 2) > 0 {
-    true => zeros_amount,
-    false => input_length - zeros_amount,
+    true => zeros_amount/100,
+    false => (input_length - zeros_amount)/100,
   };
   let i_str : String = rng.gen_range(0..max_index).to_string();
   let mut query : String = String::from("select ");

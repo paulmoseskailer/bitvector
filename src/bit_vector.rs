@@ -431,8 +431,8 @@ pub fn handle_request(a: &BitVector, request: &Request) -> (u64, u128) {
   let start = Instant::now();
   let result = match request {
     Request::Access {i} => execute_access(a, i),
-    Request::Rank {b, i}=> execute_rank(a, b, i),
-    Request::Select {b, i}=> execute_select(a, b, *i),
+    Request::Rank {b, i}=> naive_execute_rank(a, b, i),
+    Request::Select {b, i}=> naive_execute_select(a, b, *i),
   };
   let dt = start.elapsed();
 
@@ -458,6 +458,18 @@ fn execute_access(a:&BitVector, index : &u64) -> u64 {
   // see lecture slides
   let block : u64 = a.data[(index/64) as usize];
   (block >> ((63 - (index.rem_euclid(64))))) & 1u64
+}
+
+fn naive_execute_rank(bv:&BitVector, b: &bool, index : &u64) -> u64 {
+  let mut bv_index : u64 = 0;
+  let mut result : u64 = 0;
+  while bv_index < *index {
+    if execute_access(bv, &bv_index) == *b as u64 {
+      result += 1;
+    }
+    bv_index += 1;
+  }
+  result
 }
 
 fn execute_rank(a:&BitVector, b: &bool, index : &u64) -> u64 {
@@ -488,6 +500,19 @@ fn get_rank_inside_block(bv : &BitVector, index: &u64) -> u64 {
   let block : u64 = get_bits(bv, block_start, block_start + (bv.s as u64));
 
   *bv.block_index_ranks.get(&(block, index_in_block)).unwrap()
+}
+
+fn naive_execute_select(bv:&BitVector, b: &bool, mut index : u64) -> u64 {
+  let mut bv_index : u64 = 0;
+  while index > 0 {
+    if execute_access(bv, &bv_index) == *b as u64 {
+      index -= 1;
+    }
+    if index > 0 {
+      bv_index += 1;
+    }
+  }
+  bv_index
 }
 
 fn execute_select(bv:&BitVector, b: &bool, index : u64) -> u64 {

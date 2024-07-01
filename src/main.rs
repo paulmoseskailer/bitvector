@@ -15,7 +15,7 @@ use crate::generate_inputs::*;
 pub mod generate_inputs;
 
 static PRINT_INPUT : bool = false; // careful, some input is very large
-static INPUT_GEN_SIZE : u32 = 27;
+static INPUT_GEN_SIZE : u32 = 25;
 static INPUT_GEN_NUM_QUERIES : u32 = 10000;
 
 fn read_input_file(file_path: &str) -> io::Result<(u64, String, Vec<bit_vector::Request>)> {
