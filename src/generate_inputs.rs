@@ -32,9 +32,9 @@ pub fn generate_inputs(size: u32, num_queries: u32) {
     let mut rng = rand::thread_rng();
     let x : u32 = rng.gen();
     let query = match x % 3 {
-      0 => generate_random_access(input_length),
-      1 => generate_random_rank(input_length),
-      2 => generate_random_select(input_length, zeros_amount),
+      0 => generate_random_access(input_length-1),
+      1 => generate_random_rank(input_length-1),
+      2 => generate_random_select(input_length-1, zeros_amount),
       _ => panic!("modulo went wrong!"),
     };
     if let Err(e) = writeln!(output_file, "{}", query) {

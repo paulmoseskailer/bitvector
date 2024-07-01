@@ -319,8 +319,9 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
   if ((num_superblocks*b) as u64) < k {
     num_superblocks += 1;
   }
-  let num_blocks_per_superblock = b / b_prime;
+  let num_blocks_per_superblock = (b as f64/ b_prime as f64).ceil() as usize;
   debug_print!("k/b={}, num_sblocks: {num_superblocks}, num b per sb {num_blocks_per_superblock}\n", k as usize/b );
+  debug_print!("b={b}, b_prime={b_prime}\n");
 
   let mut superblock_ends : HashMap<(u64, bool), u64> = HashMap::new();
   let mut superblock_stored_naively : HashMap<(u64,bool), bool> = HashMap::new();
