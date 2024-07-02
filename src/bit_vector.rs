@@ -198,15 +198,14 @@ pub fn create_bitvector(data: Vec<u64>, n: u64, s: usize, k: u64) -> BitVector {
   benchmark_print!("Select blocks in {} ms\n", block_sel_start.elapsed().as_millis());
 
   // For printing to the console as required by the project description;
-  let required_space_access : usize = (n * 64).try_into().unwrap();
+  // access just needs the vector itself (and the 64-bit integer n)
+  let required_space_access : usize = ((n+1) * 64).try_into().unwrap();
   let required_space_rank = 
-        required_space_access
-      + num_zeros_block.len() * 64
+        num_zeros_block.len() * 64
       + num_zeros_superblock.len() * 64
       + block_index_ranks.allocated_size();
   let required_space_select = 
-        required_space_access
-      + superblock_ends.allocated_size()
+        superblock_ends.allocated_size()
       + superblock_stored_naively.allocated_size()
       + select_inside_superblock.allocated_size()
       + block_ends.allocated_size()
@@ -424,7 +423,7 @@ fn get_select_support_b(bv : &BitVector, value_to_select : bool) -> (HashMap<(u6
   (superblock_ends, superblock_stored_naively, select_inside_superblock, block_ends, block_stored_naively, select_inside_block)
 }
 
-pub fn handle_request(a: &BitVector, request: &Request) -> u64 {
+pub fn handle_request(a: &BitVector, request: &Request) -> (u64, u128) {
   benchmark_print_request(request);
   let start = Instant::now();
   let result = match request {
@@ -434,14 +433,8 @@ pub fn handle_request(a: &BitVector, request: &Request) -> u64 {
   };
   let dt = start.elapsed();
 
-  let space_required = match request {
-    Request::Access {i : _} => a.required_space_access,
-    Request::Rank {b : _, i : _}=> a.required_space_rank,
-    Request::Select {b : _, i : _}=> a.required_space_select,
-  };
-  benchmark_print!("{}, request took {} ms \n", result, dt.as_micros() / 1000);
-  println!("RESULT algo=O(1) name=paul_kailer time={} space={}", dt.as_micros() / 1000, space_required);
-  result
+  benchmark_print!("{}, request took {} us \n", result, dt.as_micros());
+  (result, dt.as_micros())
 }
 
 fn benchmark_print_request(request: &Request) {

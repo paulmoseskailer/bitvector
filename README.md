@@ -1,100 +1,54 @@
 # Advanced Data Structures Project
 
-This repo contains my solution to the project alongisde the SS24 Advanced Data Structures lecture.
+Implementation of a bitvector supporting access, rank and select queries for the Advanced Data Structures lecture in SS 2024.
 
-It implements a bit vector that supports
+## Instructions
 
-1. access
-2. rank
-3. select
+### Requirements
 
-## Input Output
+* Rust 
 
-Invocation via 
+Tested on Ubuntu 20.04 with 
+`cargo 1.78.0 (54d8815d0 2024-03-26)`.
+See [here](https://www.rust-lang.org/tools/install) for rust install instructions.
 
-`executable input_file output_file`
+### How to Compile
 
-Input is an integer $n \in \mathbb{N}$ followed by the bitvector $a \in 2^{\{0,1\}}$.
-$n$ subsequent lines contain one access, rank or select request each.
+Clone the repository, run `cargo build` in the same directory as this README file.
 
-## Benchmark
-
-To demonstrate efficiency of the data structure, I track the performance of
-
-`cargo run -- input/input_2to27.txt`
-
-through different implementations.
-
-### `Vec<bool>`
-
-Implemented as a naive vector of bools at [this commit](43ced597af43ab76a210e371fef0ed39ee8cd659).
+### How to Run
 
 ```
-Input processed in 2031 ms
-access(0) = 1, request took 0 ms
-access(1591298) = 0, request took 0 ms
-access(28340101) = 1, request took 0 ms
-access(104217728) = 1, request took 0 ms
-access(133167421) = 0, request took 0 ms
-rank_true (100002) = 50173, request took 2 ms
-rank_true (12000101) = 6048267, request took 329 ms
-rank_true (99999999) = 50394371, request took 2735 ms
-rank_true (104217727) = 52520146, request took 3043 ms
-rank_true (133167421) = 67108402, request took 3767 ms
-select_false (3001) = 5948, request took 0 ms
-select_false (770000) = 1551486, request took 31 ms
-select_false (8800901) = 17741219, request took 322 ms
-select_false (20200021) = 40715986, request took 664 ms
-select_false (54217728) = 109298034, request took 1785 ms
+cargo run input_file output_file
 ```
 
-### `Vec<u64>`, rank support with (super)blocks, select in O(n) time
-
-Access and rank implemented as in the lecture slides.
-Select in primitive implementation, i.e. O(n) time and no extra space.
+(this also compiles if needed). Alternatively, after [compiling](#how-to-compile), you can run the equivalent
 
 ```
-Input processed in 8211 ms
-access(0) = 1, request took 0 ms
-access(1591298) = 0, request took 0 ms
-access(28340101) = 1, request took 0 ms
-access(104217728) = 1, request took 0 ms
-access(133167421) = 0, request took 0 ms
-rank_true (100002) = 50173, request took 0 ms
-rank_true (12000101) = 6048268, request took 0 ms
-rank_true (99999999) = 50394371, request took 0 ms
-rank_true (104217727) = 52520147, request took 0 ms
-rank_true (133167421) = 67108402, request took 0 ms
-select_false (3001) = 5948, request took 0 ms
-select_false (770000) = 1551486, request took 34 ms 
-select_false (8800901) = 17741219, request took 401 ms 
-select_false (20200021) = 40715986, request took 854 ms 
-select_false (54217728) = 109298034, request took 2342 ms 
+./target/debug/bitvector input_file output_file
 ```
 
-Evidently great improvement for rank queries.
-Note how select queries take comparably long if not even a bit worse.
+Note that running can take a long time.
+This is due to the creation of all the support datastructures (especially for select support).
+For example, processing an input bit vector of length $2^{27}$ (~16MB) takes 2.5 minutes on my i5-7600 with 16GB RAM, while processing 1000 random queries on that vector takes ~1ms total.
 
-### `Vec<u64>`, rank support with (super)blocks, select with (super)blocks
+### Input format
 
-At [this commit](2f6ce1c4d91a0d17f5aeb5fae0c33af24b88fc68).
+As specified in the project requirements, the input has to be a text file containing
 
+1. An integer $n \in \mathbb{N}$ in the first line,
+2. the bitvector as a string over the alphabet $\{0,1\}$ followed by
+3. $n$ lines of one `access i`,`rank b i` or `select b i` query each.
+
+Where `b` $\in \{0,1\}$ and `i` is a valid index.
+If the indices are invalid, undefined behaviour may occur.
+
+### Ouptut format
+
+The specified `output_file` contains $n$ lines with the results of the queries.
+An output of the format
 ```
-access(0) = 1, request took 0 ms 
-access(1591298) = 0, request took 0 ms
-access(28340101) = 1, request took 0 ms
-access(104217728) = 1, request took 0 ms
-access(133167421) = 0, request took 0 ms
-rank_true (100002) = 50173, request took 1 ms
-rank_true (12000101) = 6048268, request took 1 ms
-rank_true (99999999) = 50394371, request took 1 ms
-rank_true (104217727) = 52520147, request took 1 ms
-rank_true (133167421) = 67108402, request took 1 ms
-select_false (3001) = 5948, request took 3 ms 
-select_false (770000) = 1551486, request took 2 ms
-select_false (8800901) = 17741219, request took 4 ms
-select_false (20200021) = 40715986, request took 3 ms
-select_false (54217728) = 109298034, request took 2 ms
+RESULT algo=O(1) name=paul_kailer time=xms space=y
 ```
-
-Select queries are significantly faster now, too.
+is printed.
+`O(1)` is the name of the (constant time) algorithm. `x` is the amount of time in ms required for all queries, while `y` is the space in bits that were required to allow constant time access to the bitvector.

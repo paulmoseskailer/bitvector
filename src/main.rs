@@ -9,11 +9,6 @@ use crate::bit_vector::*;
 #[macro_use]
 pub mod bit_vector;
 
-use crate::generate_inputs::*;
-#[path = "./generate_inputs.rs"]
-#[macro_use]
-pub mod generate_inputs;
-
 static PRINT_INPUT : bool = false; // careful, some input is very large
 
 fn read_input_file(file_path: &str) -> io::Result<(u64, String, Vec<bit_vector::Request>)> {
@@ -54,9 +49,7 @@ fn main() -> io::Result<()> {
   // read input
   let args: Vec<String> = env::args().collect();
   if args.len() < 2 {
-    println!("No input file given, generating input...");
-    generate_inputs(26, 100);
-    return Ok(());
+    panic!("Please pass an input file as an argument! Exiting...")
   }
 
   let output_filepath = match args.len() >= 3 {
@@ -85,13 +78,18 @@ fn main() -> io::Result<()> {
     Ok(file) => file,
   };
 
+  let mut total_time_us : u128 = 0;
   for request in requests.iter() {
-    let result = bit_vector::handle_request(&vector, request);
+    let (result, time_us) = bit_vector::handle_request(&vector, request);
+    total_time_us += time_us;
     // append result to output file
     if let Err(e) = writeln!(output_file, "{}", result) {
       eprintln!("Couldn't write to file: {}", e);
     }
   }
+  let space_required = vector.required_space_access + vector.required_space_rank + vector.required_space_select;
+  let total_time_ms = total_time_us / 1000;
+  println!("RESULT algo=O(1) name=paul_kailer time={total_time_ms} space={space_required}");
   debug_print!("All requests processed! \n");
   Ok(())
 }
